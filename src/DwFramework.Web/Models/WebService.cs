@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net;
@@ -11,12 +10,11 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ProtoBuf.Grpc.Server;
 using ProtoBuf.Grpc.Configuration;
 using DwFramework.Core;
-using DwFramework.Web.Rpc;
-using DwFramework.Web.WebSocket;
 
 namespace DwFramework.Web
 {
@@ -39,12 +37,13 @@ namespace DwFramework.Web
         /// 构造函数
         /// </summary>
         /// <param name="host"></param>
-        /// <param name="config"></param>
+        /// <param name="configuration"></param>
         /// <param name="configureWebHostBuilder"></param>
-        private WebService(ServiceHost host, Config.Web config, Action<IWebHostBuilder> configureWebHostBuilder)
+        private WebService(ServiceHost host, IConfiguration configuration, Action<IWebHostBuilder> configureWebHostBuilder)
         {
-            _config = config;
-            host.ConfigureWebHost(webHostBuilder =>
+            _config = configuration.Get<Config.Web>();
+            if (_config == null) throw new NotFoundException("缺少Web配置");
+            host.ConfigureHostBuilder(builder => builder.ConfigureWebHostDefaults(webHostBuilder =>
             {
                 if (!string.IsNullOrEmpty(_config.ContentRoot)) webHostBuilder.UseContentRoot(_config.ContentRoot);
                 webHostBuilder.UseKestrel(options =>
@@ -55,7 +54,6 @@ namespace DwFramework.Web
                         {
                             case Scheme.Http:
                             case Scheme.Rpc:
-                            case Scheme.Ws:
                                 options.Listen(string.IsNullOrEmpty(item.Ip) ? IPAddress.Any : IPAddress.Parse(item.Ip), item.Port, listenOptions =>
                                 {
                                     if (item.Scheme == Scheme.Rpc) listenOptions.Protocols = HttpProtocols.Http2;
@@ -63,7 +61,6 @@ namespace DwFramework.Web
                                 break;
                             case Scheme.Https:
                             case Scheme.Rpcs:
-                            case Scheme.Wss:
                                 options.Listen(string.IsNullOrEmpty(item.Ip) ? IPAddress.Any : IPAddress.Parse(item.Ip), item.Port, listenOptions =>
                                 {
                                     listenOptions.UseHttps(item.Cert, item.Password);
@@ -76,19 +73,19 @@ namespace DwFramework.Web
                     }
                 });
                 configureWebHostBuilder?.Invoke(webHostBuilder);
-            });
+            }));
         }
 
         /// <summary>
         /// 初始化
         /// </summary>
         /// <param name="host"></param>
-        /// <param name="config"></param>
+        /// <param name="configuration"></param>
         /// <param name="configureWebHostBuilder"></param>
         /// <returns></returns>
-        public static WebService Init(ServiceHost host, Config.Web config, Action<IWebHostBuilder> configureWebHostBuilder)
+        public static WebService Init(ServiceHost host, IConfiguration configuration, Action<IWebHostBuilder> configureWebHostBuilder)
         {
-            Instance = new WebService(host, config, configureWebHostBuilder);
+            Instance = new WebService(host, configuration, configureWebHostBuilder);
             return Instance;
         }
 
@@ -154,10 +151,7 @@ namespace DwFramework.Web
             app.UseWebSockets();
             app.Use(async (context, next) =>
             {
-                if (
-                    context.WebSockets.IsWebSocketRequest
-                    && _config.Listens.Where(item => item.Port == context.Connection.LocalPort && item.Scheme == Scheme.Ws || item.Scheme == Scheme.Wss).Any()
-                )
+                if (context.WebSockets.IsWebSocketRequest)
                 {
                     var webSocket = await context.WebSockets.AcceptWebSocketAsync();
                     if (webSocket == null) return;
@@ -172,6 +166,7 @@ namespace DwFramework.Web
                     OnWebSocketConnect?.Invoke(connection, new OnConnectEventArgs() { Header = context.Request.Headers });
                     _ = connection.BeginReceiveAsync();
                     resetEvent.WaitOne();
+                    return;
                 }
                 await next();
             });

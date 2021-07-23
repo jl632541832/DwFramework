@@ -4,17 +4,14 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 using ProtoBuf;
 using ProtoBuf.Grpc;
 using ProtoBuf.Grpc.Configuration;
-using ProtoBuf.Grpc.Client;
-using Grpc.Net.Client;
 using DwFramework.Core;
 using DwFramework.Web;
-using DwFramework.Web.Rpc;
-using DwFramework.Web.WebSocket;
 using DwFramework.Web.Socket;
 
 namespace WebExample
@@ -24,34 +21,17 @@ namespace WebExample
         static async Task Main(string[] args)
         {
             var host = new ServiceHost();
-            host.ConfigureWebWithJson("Config.json", builder => builder.UseStartup<Startup>(), "web");
-            host.ConfigureSocketWithJson("Config.json", "tcp");
-            host.ConfigureSocketWithJson("Config.json", "udp");
+            var configuration = new ConfigurationBuilder().AddJsonFile("Config.json").Build();
+            host.ConfigureWeb(configuration, builder => builder.UseStartup<Startup>(), "web");
+            host.ConfigureSocket(configuration, "tcp");
+            host.ConfigureSocket(configuration, "udp");
             host.ConfigureLogging(builder => builder.UserNLog());
+
             host.OnHostStarted += p =>
             {
                 var web = p.GetWeb();
                 web.OnWebSocketReceive += (c, a) => Console.WriteLine($"{c.ID} {Encoding.UTF8.GetString(a.Data)}");
-
-                Task.Factory.StartNew(async () =>
-                {
-                    await Task.Delay(1000);
-                    GrpcClientFactory.AllowUnencryptedHttp2 = true;
-                    try
-                    {
-                        using var channel = GrpcChannel.ForAddress("http://localhost:6002");
-                        var client = channel.CreateGrpcService<IGreeterService>();
-
-                        var reply = await client.SayHelloAsync(
-                            new HelloRequest { Name = "GreeterClient" });
-
-                        Console.WriteLine($"Greeting: {reply.Message}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                });
+                web.OnWebSocketClose += (c, a) => Console.WriteLine($"{c.ID} 断开连接");
 
                 var tcp = p.GetTcp();
                 tcp.OnConnect += (c, a) => Console.WriteLine($"{c.ID} connected");
@@ -147,11 +127,16 @@ namespace WebExample
                 options.JsonSerializerOptions.DictionaryKeyPolicy = null;
             });
             services.AddRpcImplements();
+
+            services.AddRazorPages();
+            services.AddServerSideBlazor();
+            services.AddAntDesign();
         }
 
         public void Configure(IApplicationBuilder app, IHostApplicationLifetime lifetime)
         {
             app.UseCors("any");
+            app.UseStaticFiles();
             app.UseRouting();
             app.UseSwagger(c => c.RouteTemplate = "{documentName}/swagger.json");
             app.UseSwaggerUI(c => c.SwaggerEndpoint($"/{"name"}/swagger.json", "desc"));
@@ -160,6 +145,9 @@ namespace WebExample
             {
                 endpoints.MapControllers();
                 endpoints.MapRpcImplements();
+
+                endpoints.MapBlazorHub();
+                endpoints.MapFallbackToPage("/_Host");
             });
         }
     }

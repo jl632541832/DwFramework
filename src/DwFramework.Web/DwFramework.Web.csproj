@@ -2,11 +2,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <ReleaseVersion>5</ReleaseVersion>
-    <BuildVersion>1.0.21-preview.9614</BuildVersion>
-    <Version>$(ReleaseVersion).$(BuildVersion)</Version>
+    <Version>5.1.1.0</Version>
     <Authors>DwGoing</Authors>
-    <Description>DwFramework Web库</Description>
+    <Description>DwFramework 网络库</Description>
     <PackageProjectUrl>https://github.com/Dwgoing/DwFramework</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>
@@ -14,7 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DwFramework.Core\DwFramework.Core.csproj" />
-    <ProjectReference Include="..\DwFramework.Plugins\DwFramework.Plugins.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Grpc.Net.Client" Version="2.37.0" />
@@ -22,8 +19,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel" Version="2.2.0" />
     <PackageReference Include="protobuf-net.Grpc" Version="1.0.152" />
     <PackageReference Include="protobuf-net.Grpc.AspNetCore" Version="1.0.152" />
-    <PackageReference Include="protobuf-net.Grpc.AspNetCore.Reflection" Version="1.0.152"/>
-    <PackageReference Include="System.ServiceModel.Primitives" Version="4.8.1"/>
+    <PackageReference Include="protobuf-net.Grpc.AspNetCore.Reflection" Version="1.0.152" />
+    <PackageReference Include="System.ServiceModel.Primitives" Version="4.8.1" />
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.2.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="5.0.7" />
     <PackageReference Include="Consul" Version="1.6.10.1" />

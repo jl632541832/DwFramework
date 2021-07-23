@@ -16,21 +16,23 @@ namespace DwFramework.Core
         private readonly IHostBuilder _hostBuilder;
         private static IHost _host;
 
-        public static EnvironmentType EnvironmentType { get; private set; }
+        public static bool IsDebug { get; private set; }
+        public static string EnvironmentType { get; private set; }
         public static IServiceProvider ServiceProvider => _host.Services;
         public event Action<IServiceProvider> OnHostStarted;
 
         /// <summary>
         /// 构造函数
         /// </summary>
+        /// <param name="isDebug"></param>
         /// <param name="environmentType"></param>
         /// <param name="args"></param>
-        public ServiceHost(EnvironmentType environmentType = EnvironmentType.Development, params string[] args)
+        public ServiceHost(bool isDebug = true, string environmentType = null, params string[] args)
         {
             _hostBuilder = Host.CreateDefaultBuilder(args).UseServiceProviderFactory(new AutofacServiceProviderFactory());
-            if (!Enum.IsDefined<EnvironmentType>(environmentType)) environmentType = EnvironmentType.Development;
-            EnvironmentType = environmentType;
-            _hostBuilder.UseEnvironment(environmentType.ToString());
+            if (string.IsNullOrEmpty(environmentType)) environmentType = Environment.GetEnvironmentVariable("ENVIRONMENT_TYPE");
+            if (string.IsNullOrEmpty(environmentType)) environmentType = "Development";
+            _hostBuilder.UseEnvironment(environmentType);
         }
 
         /// <summary>
@@ -78,28 +80,6 @@ namespace DwFramework.Core
         }
 
         /// <summary>
-        /// 配置日志
-        /// </summary>
-        /// <param name="configure"></param>
-        /// <returns></returns>
-        public ServiceHost ConfigureLogging(Action<ILoggingBuilder> configure)
-        {
-            _hostBuilder.ConfigureLogging(configure);
-            return this;
-        }
-
-        /// <summary>
-        /// 配置日志
-        /// </summary>
-        /// <param name="configure"></param>
-        /// <returns></returns>
-        public ServiceHost ConfigureLogging(Action<HostBuilderContext, ILoggingBuilder> configure)
-        {
-            _hostBuilder.ConfigureLogging(configure);
-            return this;
-        }
-
-        /// <summary>
         /// 配置服务
         /// </summary>
         /// <param name="configure"></param>
@@ -118,6 +98,28 @@ namespace DwFramework.Core
         public ServiceHost ConfigureServices(Action<HostBuilderContext, IServiceCollection> configure)
         {
             _hostBuilder.ConfigureServices(configure);
+            return this;
+        }
+
+        /// <summary>
+        /// 配置日志
+        /// </summary>
+        /// <param name="configure"></param>
+        /// <returns></returns>
+        public ServiceHost ConfigureLogging(Action<ILoggingBuilder> configure)
+        {
+            _hostBuilder.ConfigureLogging(configure);
+            return this;
+        }
+
+        /// <summary>
+        /// 配置日志
+        /// </summary>
+        /// <param name="configure"></param>
+        /// <returns></returns>
+        public ServiceHost ConfigureLogging(Action<HostBuilderContext, ILoggingBuilder> configure)
+        {
+            _hostBuilder.ConfigureLogging(configure);
             return this;
         }
 
@@ -144,28 +146,33 @@ namespace DwFramework.Core
         }
 
         /// <summary>
-        /// 添加Json配置
+        /// 添加配置
         /// </summary>
-        /// <param name="path"></param>
-        /// <param name="optional"></param>
-        /// <param name="reloadOnChange"></param>
+        /// <param name="configuration"></param>
         /// <returns></returns>
-        public ServiceHost AddJsonConfig(string path, bool optional = false, bool reloadOnChange = false)
+        public ServiceHost AddConfiguration(IConfiguration configuration)
         {
-            _hostBuilder.ConfigureHostConfiguration(builder => builder.AddJsonFile(path, optional, reloadOnChange));
+            _hostBuilder.ConfigureHostConfiguration(builder => builder.AddConfiguration(configuration));
             return this;
         }
 
         /// <summary>
         /// 添加Json配置
         /// </summary>
+        /// <param name="path"></param>
+        /// <param name="optional"></param>
+        /// <param name="reloadOnChange"></param>
+        /// <returns></returns>
+        public ServiceHost AddJsonConfiguration(string path, bool optional = false, bool reloadOnChange = false)
+            => AddConfiguration(new ConfigurationBuilder().AddJsonFile(path, optional, reloadOnChange).Build());
+
+        /// <summary>
+        /// 添加Json配置
+        /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        public ServiceHost AddJsonConfig(Stream stream)
-        {
-            _hostBuilder.ConfigureHostConfiguration(builder => builder.AddJsonStream(stream));
-            return this;
-        }
+        public ServiceHost AddJsonConfiguration(Stream stream)
+            => AddConfiguration(new ConfigurationBuilder().AddJsonStream(stream).Build());
 
         /// <summary>
         /// 添加Xml配置
@@ -174,40 +181,16 @@ namespace DwFramework.Core
         /// <param name="optional"></param>
         /// <param name="reloadOnChange"></param>
         /// <returns></returns>         
-        public ServiceHost AddXmlConfig(string path, bool optional = false, bool reloadOnChange = false)
-        {
-            _hostBuilder.ConfigureHostConfiguration(builder => builder.AddXmlFile(path, optional, reloadOnChange));
-            return this;
-        }
+        public ServiceHost AddXmlConfiguration(string path, bool optional = false, bool reloadOnChange = false)
+            => AddConfiguration(new ConfigurationBuilder().AddXmlFile(path, optional, reloadOnChange).Build());
 
         /// <summary>
         /// 添加Xml配置
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>    
-        public ServiceHost AddXmlConfig(Stream stream)
-        {
-            _hostBuilder.ConfigureHostConfiguration(builder => builder.AddXmlStream(stream));
-            return this;
-        }
-
-        /// <summary>
-        /// 运行服务
-        /// </summary>
-        /// <returns></returns>
-        public async Task RunAsync()
-        {
-            _hostBuilder.UseConsoleLifetime();
-            _host = _hostBuilder.Build();
-            OnHostStarted?.Invoke(ServiceProvider);
-            await _host.RunAsync();
-        }
-
-        /// <summary>
-        /// 停止服务
-        /// </summary>
-        /// <returns></returns>
-        public async Task StopAsync() => await _host.WaitForShutdownAsync();
+        public ServiceHost AddXmlConfiguration(Stream stream)
+            => AddConfiguration(new ConfigurationBuilder().AddXmlStream(stream).Build());
 
         /// <summary>
         /// 注册服务
@@ -242,5 +225,40 @@ namespace DwFramework.Core
         {
             foreach (var item in AppDomain.CurrentDomain.GetAssemblies()) RegisterFromAssembly(item);
         }
+
+        /// <summary>
+        /// 运行服务
+        /// </summary>
+        /// <returns></returns>
+        public async Task RunAsync()
+        {
+            _hostBuilder.UseConsoleLifetime();
+            _host = _hostBuilder.Build();
+            OnHostStarted?.Invoke(ServiceProvider);
+            await _host.RunAsync();
+        }
+
+        /// <summary>
+        /// 停止服务
+        /// </summary>
+        /// <returns></returns>
+        public async Task StopAsync() => await _host.WaitForShutdownAsync();
+
+        /// <summary>
+        /// 获取配置
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public static IConfiguration GetConfiguration(string path = null)
+            => ServiceProvider.GetConfiguration(path);
+
+        /// <summary>
+        /// 解析配置
+        /// </summary>
+        /// <param name="path"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static T ParseConfiguration<T>(string path = null)
+            => ServiceProvider.ParseConfiguration<T>(path);
     }
 }

@@ -2,11 +2,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <ReleaseVersion>5</ReleaseVersion>
-    <BuildVersion>0.1.17-20200506.9653</BuildVersion>
-    <Version>$(ReleaseVersion).$(BuildVersion)</Version>
+    <Version>5.1.1.0</Version>
     <Authors>DwGoing</Authors>
-    <Description>DwFramework RabbitMQ库</Description>
+    <Description>DwFramework RabbitMQ封装库</Description>
     <PackageProjectUrl>https://github.com/Dwgoing/DwFramework</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>

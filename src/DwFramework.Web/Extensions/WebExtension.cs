@@ -1,9 +1,8 @@
 ﻿using System;
 using System.IO;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Autofac;
@@ -14,33 +13,6 @@ namespace DwFramework.Web
     public static class WebExtension
     {
         /// <summary>
-        /// 配置Web主机
-        /// </summary>
-        /// <param name="host"></param>
-        /// <param name="configure"></param>
-        /// <returns></returns>
-        public static ServiceHost ConfigureWebHost(this ServiceHost host, Action<IWebHostBuilder> configure)
-        {
-            host.ConfigureHostBuilder(builder => builder.ConfigureWebHost(configure));
-            return host;
-        }
-
-        /// <summary>
-        /// 配置Web服务
-        /// </summary>
-        /// <param name="host"></param>
-        /// <param name="config"></param>
-        /// <param name="configureWebHostBuilder"></param>
-        /// <returns></returns>
-        public static ServiceHost ConfigureWeb(this ServiceHost host, Config.Web config, Action<IWebHostBuilder> configureWebHostBuilder)
-        {
-            if (config == null) throw new Exception("未读取到Web配置");
-            var webService = WebService.Init(host, config, configureWebHostBuilder);
-            host.ConfigureContainer(builder => builder.RegisterInstance(webService).SingleInstance());
-            return host;
-        }
-
-        /// <summary>
         /// 配置Web服务
         /// </summary>
         /// <param name="host"></param>
@@ -50,8 +22,8 @@ namespace DwFramework.Web
         /// <returns></returns>
         public static ServiceHost ConfigureWeb(this ServiceHost host, IConfiguration configuration, Action<IWebHostBuilder> configureWebHostBuilder, string path = null)
         {
-            var config = configuration.GetConfig<Config.Web>(path);
-            host.ConfigureWeb(config, configureWebHostBuilder);
+            var webService = WebService.Init(host, configuration.GetConfiguration(path), configureWebHostBuilder);
+            host.ConfigureContainer(builder => builder.RegisterInstance(webService).SingleInstance());
             return host;
         }
 
@@ -106,5 +78,38 @@ namespace DwFramework.Web
         /// <typeparam name="WebApiService"></typeparam>
         /// <returns></returns>
         public static WebService GetWeb(this IServiceProvider provider) => provider.GetService<WebService>();
+
+        /// <summary>
+        /// 添加Rpc服务
+        /// </summary>
+        /// <param name="services"></param>
+        /// <returns></returns>
+        public static IServiceCollection AddRpcImplements(this IServiceCollection services, params Type[] rpcImpls)
+        {
+            WebService.Instance.AddRpcImplements(services, rpcImpls);
+            return services;
+        }
+
+        /// <summary>
+        /// 匹配Rpc路由
+        /// </summary>
+        /// <param name="endpoints"></param>
+        /// <returns></returns>
+        public static IEndpointRouteBuilder MapRpcImplements(this IEndpointRouteBuilder endpoints)
+        {
+            WebService.Instance.MapRpcImplements(endpoints);
+            return endpoints;
+        }
+
+        /// <summary>
+        /// 使用WebSocket中间件
+        /// </summary>
+        /// <param name="app"></param>
+        /// <returns></returns>
+        public static IApplicationBuilder UseWebSocket(this IApplicationBuilder app)
+        {
+            WebService.Instance.UseWebSocket(app);
+            return app;
+        }
     }
 }
